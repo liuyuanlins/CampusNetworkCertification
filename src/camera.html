@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 校园网认证</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .container {
+      background-color: #fff;
+      padding: 20px 40px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px; /* 添加下边距 */
+    }
+    img {
+      width: auto;
+      max-width: 100%;
+      height: auto;
+      border: 2px solid #2f4468;
+      border-radius: 10px;
+      margin-bottom: 20px; /* 添加下边距 */
+    }
+    .button {
+      background-color: #007BFF;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 18px;
+      margin: 6px 3px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -khtml-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      -webkit-tap-highlight-color: rgba(0,0,0,0);
+      transition: background-color 0.3s ease;
+      width: 100%; /* 设置按钮宽度为100% */
+      border-radius: 5px; 
+    }
+    .button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ESP32 校园网认证</h1>
+    <img src="" id="photo" alt="ESP32-CAM Stream">
+    <button id="toggleLEDButton" class="button" onclick="toggleLED()">Toggle LED</button>
+  </div>
+  <script>
+    function toggleCheckbox(x) {
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", "/action?go=" + x, true);
+      xhr.send();
+    }
+    var baseUrl = window.location.href;
+    var correctedUrl = baseUrl.slice(0, baseUrl.lastIndexOf("/")) + ":81/stream";
+    window.onload = function() {
+      document.getElementById("photo").src = correctedUrl;
+    }
+    function toggleLED() {
+      fetch('/toggleLED')
+        .then(response => response.text())
+        .then(text => {
+          document.getElementById("toggleLEDButton").textContent = text;
+        })
+        .catch(error => console.error('Error:', error));
+    }
+  </script>
+</body>
+</html>

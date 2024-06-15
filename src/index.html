@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>配置页面</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      background-color: #f4f4f9; 
+      margin: 0; 
+      padding: 0; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      height: 100vh; 
+    }
+    .container {
+      background-color: #fff; 
+      padding: 20px 40px; 
+      border-radius: 10px; 
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
+      max-width: 400px; 
+      width: 100%; 
+    }
+    h2 {
+      text-align: center; 
+      color: #333; 
+    }
+    label { 
+      display: block; 
+      margin-top: 10px; 
+      color: #555; 
+    }
+    input[type="text"], input[type="password"] { 
+      width: calc(100% - 16px); 
+      padding: 8px; 
+      margin-top: 5px; 
+      border: 1px solid #ccc; 
+      border-radius: 5px; 
+      box-sizing: border-box; 
+    }
+    input[type="submit"], .camera-button { 
+      margin-top: 20px; 
+      padding: 10px 20px; 
+      border: none; 
+      border-radius: 5px; 
+      background-color: #007BFF; 
+      color: #fff; 
+      font-size: 16px; 
+      cursor: pointer; 
+      width: 100%; 
+    }
+    input[type="submit"]:hover, .camera-button:hover { 
+      background-color: #0056b3; 
+    }
+    .checkbox-container { 
+      margin-top: 10px; 
+      display: flex; 
+      align-items: center; 
+    }
+    .checkbox-label { 
+      margin-right: 10px; 
+      color: #555; 
+    }
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px; /* 间距 */
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>配置页面</h2>
+    <form action="/save" method="POST">
+      <label for="ssid">WiFi 热点名称:</label>
+      <input type="text" id="ssid" name="ssid" value="%SSID%" required>
+      <label for="password">WiFi 热点密码:</label>
+      <input type="password" id="password" name="password" value="%PASSWORD%" required>
+      <label for="username">用户名:</label>
+      <input type="text" id="username" name="username" value="%USERNAME%" required>
+      <label for="userpassword">用户密码:</label>
+      <input type="password" id="userpassword" name="userpassword" value="%USERPASSWORD%" required>
+      <div class="checkbox-container">
+        <input type="checkbox" id="network" name="network" value="internal" %NETWORK_CHECKED%>
+        <label for="network" class="checkbox-label">内网</label>
+      </div>
+      <div class="button-group">
+        <input type="submit" value="配置">
+        <button type="button" class="camera-button" onclick="location.href='/camera'">打开摄像头</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>
