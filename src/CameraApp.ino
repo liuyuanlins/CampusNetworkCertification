@@ -222,7 +222,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 
 void startCamera() {
   digitalWrite(PWDN_GPIO_NUM, LOW);  // 打开摄像头电源
-  delay(2000);                       // 等待摄像头启动
+  delay(50);                       // 等待摄像头启动
   configCamera();
 }
 
@@ -358,8 +358,8 @@ void configCamera() {
   config.pin_pclk = 22;
   config.pin_vsync = 25;
   config.pin_href = 23;
-  config.pin_sscb_sda = 26;
-  config.pin_sscb_scl = 27;
+  config.pin_sccb_sda = 26;
+  config.pin_sccb_scl = 27;
   config.pin_pwdn = 32;
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;

@@ -180,7 +180,7 @@ String get_form_data() {
     String formHTML = payload.substring(formStart, formEnd + 7);  // Include the closing form tag
 
     // 创建 JSON 对象
-    StaticJsonDocument<512> jsonDoc;
+    JsonDocument jsonDoc;
 
     // 解析所有 input 元素
     int inputPos = formHTML.indexOf("<input");
@@ -538,19 +538,25 @@ char hexToDec(char c) {
 
 // Helper function to determine content type based on file extension
 String getContentType(const String& path) {
-  if (path.endsWith(".txt") || path.endsWith(".h")) return "text/plain; charset=utf-8";
+  if (path.endsWith(".txt") || path.endsWith(".h") || path.endsWith(".hpp") || path.endsWith(".c") || path.endsWith(".cpp")) return "text/plain; charset=utf-8";
   else if (path.endsWith(".htm") || path.endsWith(".html")) return "text/html; charset=utf-8";
   else if (path.endsWith(".css")) return "text/css";
   else if (path.endsWith(".js")) return "application/javascript";
   else if (path.endsWith(".png")) return "image/png";
   else if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
   else if (path.endsWith(".gif")) return "image/gif";
+  // else if (path.endsWith(".mp4")) return "video/mp4";
+  else if (path.endsWith(".mp3")) return "audio/mpeg";
+  else if (path.endsWith(".ogg")) return "audio/ogg";
+  else if (path.endsWith(".wav")) return "audio/wav";
+  else if (path.endsWith(".webm")) return "video/webm";
+  else if (path.endsWith(".mkv")) return "video/x-matroska";
   return "application/octet-stream";
 }
 
 // Helper function to determine if the content type should be inline preview
 bool isInlinePreview(const String& contentType) {
-  return contentType.startsWith("text/") || contentType.startsWith("image/") || contentType == "application/javascript";
+  return contentType.startsWith("text/") || contentType.startsWith("image/") || contentType == "application/javascript" || contentType.startsWith("video/") || contentType.startsWith("audio/");
 }
 
 void handleFileDownload() {
@@ -564,11 +570,6 @@ void handleFileDownload() {
       bool inlinePreview = isInlinePreview(contentType);
 
       server.sendHeader("Content-Type", contentType);
-      // if (inlinePreview) {
-      //   server.sendHeader("Content-Disposition", "inline; filename=\"" + String(path.substring(1)) + "\"");  // Remove leading "/" for filename
-      // } else {
-      //   server.sendHeader("Content-Disposition", "attachment; filename=\"" + String(path.substring(1)) + "\"");  // Remove leading "/" for filename
-      // }
 
       // Ensure the filename is properly encoded for UTF-8
       String encodedFilename = String(path.substring(1));
