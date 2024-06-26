@@ -25,7 +25,7 @@ WebServer server(80);
 Preferences preferences;
 
 // 定义DNS服务器
-// DNSServer dnsServer;
+DNSServer dnsServer;
 // 设置服务器端口
 const byte DNS_PORT = 53;
 
@@ -125,10 +125,39 @@ const char *htmlFormTemplate = R"rawliteral(
         <input type="submit" value="配置">
         <button type="button" class="camera-button" onclick="location.href='/camera'">打开摄像头</button>
         <button type="button" class="camera-button" onclick="location.href='/explorer'">打开文件浏览器</button>
+        <button type="button" class="camera-button" onclick="wakeOnLan()">开机</button>
+        <button type="button" class="camera-button" onclick="shutdown()">关机</button>
       </div>
     </form>
   </div>
 </body>
+<script>
+function wakeOnLan() {
+  fetch('/wake_on_lan', {
+    method: 'POST'
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log(data.message);
+  })
+  .catch(error => {
+    console.error('Error:', error);
+  });
+}
+
+function shutdown() {
+  fetch('/shutdown', {
+    method: 'POST'
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log(data.message);
+  })
+  .catch(error => {
+    console.error('Error:', error);
+  });
+}
+</script>
 </html>
 )rawliteral";
 
@@ -870,6 +899,62 @@ void handleNoSD()
   server.send(200, "text/html", html);
 }
 
+// 目标设备的MAC地址
+const char* target_mac = "58:11:22:B9:DE:C7";
+
+// 远程关机目标计算机的IP地址和端口号
+const char* shutdown_host = "192.168.101.100";
+const int shutdown_port = 145;
+
+void wakeOnLan() {
+  WiFiUDP udp;
+  IPAddress broadcast(192, 168, 101, 255); // 根据您提供的 target_ip 设置广播地址
+
+  // 构建 WOL 魔术包
+  uint8_t mac_bytes[6];
+  sscanf(target_mac, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &mac_bytes[0], &mac_bytes[1], &mac_bytes[2], &mac_bytes[3], &mac_bytes[4], &mac_bytes[5]);
+  uint8_t packet[102];
+  memset(packet, 0xFF, 6);
+  for (int i = 6; i < 102; i += 6) {
+    memcpy(packet + i, mac_bytes, 6);
+  }
+
+  // 通过 UDP 广播发送 WOL 魔术包
+  udp.beginPacket(broadcast, 9);
+  udp.write(packet, sizeof(packet));
+  udp.endPacket();
+
+  Serial.println("已发送 WOL 魔术包");
+}
+
+void shutdown() {
+  WiFiClient client;
+
+  // 连接到远程计算机
+  if (client.connect(shutdown_host, shutdown_port)) {
+    // 发送远程关机命令
+    client.println("shutdown /s /f /t 0 /m DESKTOP-C497MQM"); // 替换为实际的关机命令
+    client.flush();
+    client.stop();
+
+    Serial.println("已发送远程关机命令");
+  } else {
+    Serial.println("无法连接到远程计算机");
+  }
+}
+
+void handleWakeOnLan()
+{
+  wakeOnLan();
+  server.send(200, "application/json", "{\"message\":\"唤醒主机成功\"}");
+}
+
+void handleShutdown()
+{
+  shutdown();
+  server.send(200, "application/json", "{\"message\":\"关机成功\"}");
+}
+
 void setup()
 {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // Disable brownout detector
@@ -898,8 +983,11 @@ void setup()
 
   startCameraServer();
 
+  server.on("/wake_on_lan", HTTP_POST, handleWakeOnLan);
+  server.on("/shutdown", HTTP_POST, handleShutdown);
+
   // 配置DNS服务器
-  // dnsServer.start(DNS_PORT, "www.lin.com", WiFi.localIP());
+  dnsServer.start(DNS_PORT, "www.lin.com", WiFi.localIP());
 
   // 初始化 FTP 服务器
   ftpSrv.begin("admin", "admin"); // 设置 FTP 用户名和密码
@@ -941,7 +1029,7 @@ void loop()
   // 处理客户端请求
   server.handleClient();
   // 处理DNS请求
-  // dnsServer.processNextRequest();
+  dnsServer.processNextRequest();
   // 处理 FTP 请求
   ftpSrv.handleFTP();
 }
