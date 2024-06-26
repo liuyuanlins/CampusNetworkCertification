@@ -14,9 +14,12 @@
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 
+void maintainFRPConnection();
+
 // URLs and credentials for the login process
 const char *url_header = "http://222.197.192.59:9090/zportal/loginForWeb?wlanuserip=5832eab1f630bcdaac19f3d11ad8443c&wlanacname=c8c9622958c8e70501e9284a0abec0fc&ssid=bfd0fd2d574e31c6ba728e0a908cdb8f&nasip=cbde5ddbb5eb03be513e83acf881fb36&snmpagentip=&mac=f862e1a8940dcdac7e81a799bdfc3b57&t=wireless-v2&url=5eabee93b202dc1e55830c33c71804648675c3c7527f3a7112bcb242b5353b5d24a7b21043784bbc&apmac=&nasid=c8c9622958c8e70501e9284a0abec0fc&vid=0147bdf913dc29b3&port=0c8b5612931ecde4&nasportid=b8007b401a20ea61501893ea5c542842d357e7263d72d72c0ebc4d08a33b5660"; // Replace with actual URL
 const char *url_login = "http://222.197.192.59:9090/zportal/login/do";
+
 // 创建 JSON 对象
 JsonDocument paramJsonDoc;
 
@@ -900,13 +903,14 @@ void handleNoSD()
 }
 
 // 目标设备的MAC地址
-const char* target_mac = "58:11:22:B9:DE:C7";
+const char *target_mac = "58:11:22:B9:DE:C7";
 
 // 远程关机目标计算机的IP地址和端口号
-const char* shutdown_host = "192.168.101.100";
+const char *shutdown_host = "192.168.101.100";
 const int shutdown_port = 145;
 
-void wakeOnLan() {
+void wakeOnLan()
+{
   WiFiUDP udp;
   IPAddress broadcast(192, 168, 101, 255); // 根据您提供的 target_ip 设置广播地址
 
@@ -915,7 +919,8 @@ void wakeOnLan() {
   sscanf(target_mac, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &mac_bytes[0], &mac_bytes[1], &mac_bytes[2], &mac_bytes[3], &mac_bytes[4], &mac_bytes[5]);
   uint8_t packet[102];
   memset(packet, 0xFF, 6);
-  for (int i = 6; i < 102; i += 6) {
+  for (int i = 6; i < 102; i += 6)
+  {
     memcpy(packet + i, mac_bytes, 6);
   }
 
@@ -927,18 +932,22 @@ void wakeOnLan() {
   Serial.println("已发送 WOL 魔术包");
 }
 
-void shutdown() {
+void shutdown()
+{
   WiFiClient client;
 
   // 连接到远程计算机
-  if (client.connect(shutdown_host, shutdown_port)) {
+  if (client.connect(shutdown_host, shutdown_port))
+  {
     // 发送远程关机命令
     client.println("shutdown /s /f /t 0 /m DESKTOP-C497MQM"); // 替换为实际的关机命令
     client.flush();
     client.stop();
 
     Serial.println("已发送远程关机命令");
-  } else {
+  }
+  else
+  {
     Serial.println("无法连接到远程计算机");
   }
 }
@@ -1032,4 +1041,107 @@ void loop()
   dnsServer.processNextRequest();
   // 处理 FTP 请求
   ftpSrv.handleFTP();
+
+  // maintainFRPConnection();
+}
+
+WiFiClient client;
+const char* frp_server = "121.36.10.190";
+const int frp_server_port = 25052;
+const char* frp_token = "lllyyylll";
+
+unsigned long lastAttemptTime = 0;
+const unsigned long attemptInterval = 10000; // 10 seconds
+const int maxAttempts = 3;
+int attemptCount = 0;
+
+enum ConnectionState
+{
+  IDLE,
+  CONNECTING,
+  CONNECTED
+};
+
+ConnectionState connectionState = IDLE;
+
+void tryToConnect()
+{
+  if (client.connect(frp_server, frp_server_port))
+  {
+    Serial.println("Connected to FRP server");
+
+    // Send FRP client configuration to server
+    String frpConfig = String("[common]\n") +
+                        "server_addr = " + frp_server + "\n" +
+                        "server_port = " + frp_server_port + "\n" +
+                        "privilege_token = " + String(frp_token) + "\n" +
+                        "tls_enable = true\n" +
+                        "[http1]\n" +
+                        "type = http\n" +
+                        "local_port = 80\n" +
+                        "remote_port = 20082\n" +
+                        "[http2]\n" +
+                        "type = http\n" +
+                        "local_port = 81\n" +
+                        "remote_port = 20083\n";
+
+    client.print(frpConfig);
+
+    connectionState = CONNECTED;
+  }
+  else
+  {
+    Serial.println("Connection to FRP server failed");
+    attemptCount++;
+    if (attemptCount >= maxAttempts)
+    {
+      Serial.println("Max connection attempts reached, waiting for next interval");
+      connectionState = IDLE;
+    }
+  }
+}
+
+void maintainFRPConnection()
+{
+  unsigned long currentTime = millis();
+
+  switch (connectionState)
+  {
+  case IDLE:
+    if (!client.connected() && currentTime - lastAttemptTime >= attemptInterval)
+    {
+      Serial.println("Attempting to connect to FRP server...");
+      attemptCount = 0;
+      connectionState = CONNECTING;
+      lastAttemptTime = currentTime;
+    }
+    break;
+
+  case CONNECTING:
+    if (attemptCount < maxAttempts)
+    {
+      tryToConnect();
+    }
+    else
+    {
+      connectionState = IDLE;
+    }
+    break;
+
+  case CONNECTED:
+    if (!client.connected())
+    {
+      Serial.println("Lost connection to FRP server");
+      connectionState = IDLE;
+    }
+    else
+    {
+      if (client.available())
+      {
+        String line = client.readStringUntil('\n');
+        Serial.println(line);
+      }
+    }
+    break;
+  }
 }
