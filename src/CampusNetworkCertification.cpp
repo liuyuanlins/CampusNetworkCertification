@@ -14,6 +14,21 @@
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 
+#include <PubSubClient.h>
+
+void wakeOnLan();
+void shutdown();
+
+// Replace with your MQTT Broker address
+const char *mqtt_server = "mqtt.hypsrd.cn";
+int mqtt_port = 1883;
+// Define the MQTT topics
+const char *subscribe_topic = "/_ptest/160525/sub";
+const char *publish_topic = "/_ptest/160525/pub";
+// MQTT credentials
+const char *mqtt_user = "aaa";
+const char *mqtt_password = "bbb";
+
 void maintainFRPConnection();
 
 // URLs and credentials for the login process
@@ -33,6 +48,9 @@ DNSServer dnsServer;
 const byte DNS_PORT = 53;
 
 File fsUploadFile;
+
+WiFiClient espClient;
+PubSubClient mqtt_client(espClient);
 
 FtpServer ftpSrv;
 // HTML 表单页面模板
@@ -163,6 +181,91 @@ function shutdown() {
 </script>
 </html>
 )rawliteral";
+
+void callback(char *topic, byte *payload, unsigned int length)
+{
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (unsigned int i = 0; i < length; i++)
+  {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+
+  // Create a message to publish
+  String replyMessage = "Received your message: ";
+  replyMessage += String((char *)payload, length);
+
+  // Publish the message to another topic
+  mqtt_client.publish(publish_topic, replyMessage.c_str());
+
+  if (String(topic) == subscribe_topic)
+  {
+    // Handle the message
+    String message = String((char *)payload, length);
+    if (message == "power on")
+    {
+      wakeOnLan();
+      // Publish a message to the topic
+      mqtt_client.publish(publish_topic, "Powering on the device");
+    }
+    else if (message == "off")
+    {
+      shutdown();
+      // Publish a message to the topic
+      mqtt_client.publish(publish_topic, "Shutting down the device");
+    }
+  }
+}
+
+bool reconnect() {
+  if (mqtt_client.connect("ESP32Client", mqtt_user, mqtt_password)) {
+    Serial.println("connected");
+    // Once connected, publish an announcement...
+    mqtt_client.publish(publish_topic, "ESP32 connected");
+    // ... and resubscribe
+    mqtt_client.subscribe(subscribe_topic);
+    return true;
+  } else {
+    Serial.print("failed, rc=");
+    Serial.print(mqtt_client.state());
+    Serial.println(" try again in 5 seconds");
+    return false;
+  }
+}
+
+
+void MQTT_Init()
+{
+  mqtt_client.setServer(mqtt_server, mqtt_port);
+  mqtt_client.setCallback(callback);
+}
+
+void static MQTT_Poll()
+{
+  // Variables to handle non-blocking reconnect
+  static unsigned long lastReconnectAttempt = 0;
+  static const unsigned long reconnectInterval = 5000; // 5 seconds
+
+  if (!mqtt_client.connected())
+  {
+    unsigned long now = millis();
+    if (now - lastReconnectAttempt > reconnectInterval)
+    {
+      lastReconnectAttempt = now;
+      // Attempt to reconnect
+      if (reconnect())
+      {
+        lastReconnectAttempt = 0;
+      }
+    }
+  }
+  else
+  {
+    mqtt_client.loop();
+  }
+}
 
 void connectToWiFi()
 {
@@ -1000,6 +1103,8 @@ void setup()
 
   // 初始化 FTP 服务器
   ftpSrv.begin("admin", "admin"); // 设置 FTP 用户名和密码
+
+  MQTT_Init();
 }
 
 // Timer for the loop delay
@@ -1046,9 +1151,9 @@ void loop()
 }
 
 WiFiClient client;
-const char* frp_server = "121.36.10.190";
+const char *frp_server = "121.36.10.190";
 const int frp_server_port = 25052;
-const char* frp_token = "lllyyylll";
+const char *frp_token = "lllyyylll";
 
 unsigned long lastAttemptTime = 0;
 const unsigned long attemptInterval = 10000; // 10 seconds
@@ -1072,20 +1177,20 @@ void tryToConnect()
 
     // Send FRP client configuration to server
     String frpConfig = String("[common]\n") +
-                        "server_addr = " + frp_server + "\n" +
-                        "server_port = " + frp_server_port + "\n" +
-                        "privilege_token = " + String(frp_token) + "\n" +
-                        "tls_enable = true\n" +
-                        "[http1]\n" +
-                        "type = http\n" +
-                        "local_port = 80\n" +
-                        "remote_port = 20082\n" +
-                        "[http2]\n" +
-                        "type = http\n" +
-                        "local_port = 81\n" +
-                        "remote_port = 20083\n";
+                       "server_addr = " + frp_server + "\n" +
+                       "server_port = " + frp_server_port + "\n" +
+                       "privilege_token = " + String(frp_token) + "\n" +
+                       "tls_enable = true\n" +
+                       "[http1]\n" +
+                       "type = http\n" +
+                       "local_port = 80\n" +
+                       "remote_port = 20082\n" +
+                       "[http2]\n" +
+                       "type = http\n" +
+                       "local_port = 81\n" +
+                       "remote_port = 20083\n";
 
-    client.print(frpConfig);
+    mqtt_client.print(frpConfig);
 
     connectionState = CONNECTED;
   }
